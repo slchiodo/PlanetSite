@@ -1,0 +1,50 @@
+newmtl Layer 1 Front Inflation Material
+Ka 0.000000 0.000000 0.000000
+Kd 0.858824 0.858824 0.858824
+Ks 0.640000 0.640000 0.640000
+Ns 484.381531
+d 1.000000
+Tr 0.000000
+map_Kd Capsule - Diffuse 2.psd 
+map_Bump Material - Brushed Metal I - Bump.psd 
+
+newmtl Layer 1 Front Bevel Material
+Ka 0.000000 0.000000 0.000000
+Kd 0.858824 0.858824 0.858824
+Ks 0.640000 0.640000 0.640000
+Ns 484.381531
+d 1.000000
+Tr 0.000000
+map_Kd Capsule - Diffuse.psd 
+map_Bump Material - Brushed Metal I - Bump.psd 
+
+newmtl Layer 1 Extrusion Material
+Ka 0.000000 0.000000 0.000000
+Kd 0.858824 0.858824 0.858824
+Ks 0.640000 0.640000 0.640000
+Ns 484.381531
+d 1.000000
+Tr 0.000000
+map_Kd Capsule - Diffuse.psd 
+map_Bump Material - Brushed Metal I - Bump.psd 
+
+newmtl Layer 1 Back Bevel Material
+Ka 0.000000 0.000000 0.000000
+Kd 0.858824 0.858824 0.858824
+Ks 0.640000 0.640000 0.640000
+Ns 484.381531
+d 1.000000
+Tr 0.000000
+map_Kd Capsule - Diffuse.psd 
+map_Bump Material - Brushed Metal I - Bump.psd 
+
+newmtl Layer 1 Back Inflation Material
+Ka 0.000000 0.000000 0.000000
+Kd 0.858824 0.858824 0.858824
+Ks 0.640000 0.640000 0.640000
+Ns 484.381531
+d 1.000000
+Tr 0.000000
+map_Kd Capsule - Diffuse.psd 
+map_Bump Material - Brushed Metal I - Bump.psd 
+

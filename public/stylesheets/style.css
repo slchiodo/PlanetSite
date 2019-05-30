@@ -1,0 +1,28 @@
+body {
+  margin: 0px;
+  overflow: hidden;
+  background-color: black;
+  font: 14px "Lucida Grande", Helvetica, Arial, sans-serif;
+}
+
+.ui {
+  color: yellow;
+}
+
+#main-container {
+  position: absolute;
+  text-align: center;
+}
+
+#header-container {
+  top: 2%;
+  height: 5%;
+}
+
+#footer-container {
+  bottom: 2%;
+  right: 2%;
+  text-align: right;
+  height: 5%;
+  position: fixed;
+}
