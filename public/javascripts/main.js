@@ -1,38 +1,48 @@
 
-var scene, camera, renderer, loader, clock, flyControls;
-var geometrySphere, geometryRing, geometryBox, planet, ring, token, textureLoader;
+var scene = new THREE.Scene();
+var clock = new THREE.Clock();
+var loader = new THREE.TextureLoader();
+
+var camera, renderer, flyControls, ambientLight, pointLight;
+var geometrySphere, geometryRing, geometryBox, planet, ring, token, meteor;
 var mercury, venus, earth, mars, jupiter, saturn, uranus, neptune;
 var mouse = new THREE.Vector2();
 
+var starGroup = new THREE.Group();
+var starLightGroup = new THREE.Group();
+var star;
+
+//  name, obj, scale, padding, image
+// .65 .75 .8 .7 1 .95 .9 .85
 var planetGroup = [
-	mercury = new PlainPlanet('Mercury', null, 'images/mercurymap.jpg' ), 
-	venus = new PlainPlanet('Venus', null, 'images/venusmap.jpg' ), 
-	earth = new TokenPlanet('Earth', null, 'images/earthmap.jpg', 'images/earthtoken.png', null ), 
-	mars = new TokenPlanet('Mars', null, 'images/marsmap.jpg', 'images/marstoken.png', null ), 
-	jupiter = new PlainPlanet('Jupiter', null, 'images/jupitermap.jpg' ),
-	saturn = new RingTokenPlanet('Saturn', null, 'images/saturnmap.jpg', 'images/saturnring.jpg', null, 'images/saturntoken.png', null ), 
-	uranus = new PlainPlanet('Uranus', null, 'images/uranusmap.jpg' ),   //'images/uranusring.jpg', null
-	neptune = new PlainPlanet('Neptune', null, 'images/neptunemap.jpg' )
+	mercury = new PlainPlanet( 'Mercury', null, 0.75, 0.3, 'images/mercurymap.jpg' ), 
+	venus = new PlainPlanet( 'Venus', null, 0.75, 0.3, 'images/venusmap.jpg' ), 
+	earth = new TokenPlanet( 'Earth', null, 0.75, 0.3, 'images/earthmap.jpg', 'images/earthtoken.png', null ), 
+	mars = new TokenPlanet( 'Mars', null, 0.75, 0.3, 'images/marsmap.jpg', 'images/marstoken.png', null ), 
+	jupiter = new PlainPlanet( 'Jupiter', null, 0.75, 0.3, 'images/jupitermap.jpg' ),
+	saturn = new RingTokenPlanet( 'Saturn', null, 0.75, 0.3, 'images/saturnmap.jpg', 'images/saturnring.jpg', null, 'images/saturntoken.png', null ), 
+	uranus = new PlainPlanet( 'Uranus', null, 0.75, 0.3, 'images/uranusmap.jpg' ),
+	neptune = new PlainPlanet( 'Neptune', null, 0.75, 0.3, 'images/neptunemap.jpg' )
 ], planetNum = planetGroup.length;
 
 var keyboard = {};
 var raycaster = new THREE.Raycaster(),INTERSECTED;
 
 var WIDTH = window.innerWidth,
-	HEIGHT = window.innerHeight,
+	HEIGHT = window.innerHeight;
+
+var VIEW_ANGLE = 70,
 	ASPECT = WIDTH / HEIGHT,
-	CONTROLSPEED = 0.05,
+	NEAR = 0.1,
+	FAR = 100;
+	
+var	CONTROLSPEED = 0.05,
 	SPINSPEED = 0.01;
 
-function init() {
-	var light;
 
-	scene = new THREE.Scene();
-	clock = new THREE.Clock();
-	loader = new THREE.TextureLoader();
-	textureLoader = new THREE.TextureLoader();
+function init() {	
 
-	camera = new THREE.PerspectiveCamera( 75, ASPECT, 0.1, 1000 );
+	camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR );
 		camera.name = 'ShipPOV';
 		camera.lookAt(scene.position);
 
@@ -47,20 +57,18 @@ function init() {
         flyControls.autoForward = false;
         flyControls.dragToLook = true;
 
-	light = new THREE.AmbientLight( 0xFFFFFF, 0.3 );
-		light.name = 'AmbientLight';
-		light.position.set(camera.position);
-		scene.add(light);
+	ambientLight = new THREE.AmbientLight( 0x404040 , 0.1 );
+		ambientLight.name = 'AmbientLight';
+		ambientLight.position = camera.position;
+		scene.add( ambientLight );
 
-	light = new THREE.DirectionalLight( 0xFFFDF1, 0.7 ); // warm yellow light
-		light.name = 'DirectionalLight';
-    	light.position = camera.position;
-    	scene.add(light);
+	pointLight = new THREE.PointLight( 0xCCCCCC, 1.5, 15.0 );
+		pointLight.name = 'PointLight';
+		pointLight.position = camera.position;
+		pointLight.castShadow = true;
+		scene.add( pointLight );
 
 	setScene();
-
-	// Move camera back to see scene
-	console.log(camera.position);
 
 	// Function called when download progresses
 	var onProgress = function (xhr) { console.log((xhr.loaded / xhr.total * 100) + '% loaded'); };
@@ -72,44 +80,139 @@ function init() {
 }
 
 
+
+function generateRandomNumber( max, min ) {
+    highlightedNumber = Math.random() * ( max - min ) + min;
+    return highlightedNumber;
+};
+
+function pickOne( max, min ) {
+    highlightedNumber = Math.floor( Math.random() * 2 ) + 1;
+    if ( highlightedNumber == 2 ) { return max; }
+    return min;
+};
+
+
 /* SET UP SCENE */
 function setScene() {
 	// Set background image
 	loader.load( 'images/sky.jpg' , function(texture) { scene.background = texture; });
 
 	// Create shapes for planets, rings and tokens
-	geometrySphere = new THREE.SphereGeometry( 1, 32, 50 );
-	geometryRing = new THREE.RingGeometry( 1.6, 1.7, 50 );
-	geometryBox = new THREE.BoxGeometry( 0.75, 1.0, 0.01 );
+	geometrySphere = new THREE.SphereGeometry( 1, 50, 50 );
+	var geometrySphereLittle = new THREE.SphereGeometry( 0.01, 5, 5 );
+	geometryBox = new THREE.BoxGeometry( 0.25, 0.25, 0.05 );
 
-	var currpos = -1.0;
-	var currposY = 2.0;
+	var currpos = 1.0;
+	var currposY = 0.25;
 	var texture, material;
+	var distanceX = 11;
+	var distanceY = 5;
+	var distanceZ = -10;
 	// var bmap = THREE.ImageUtils.loadTexture('./images/texture.jpg');
+
+	material = new THREE.MeshBasicMaterial( { color: 0xffffff } );
+	for ( i = 0; i < 15; i++ ) {
+		// Both positive
+		star = new THREE.Mesh( geometrySphereLittle, material );
+			star.name = "Star";
+	        star.position.x = generateRandomNumber( 0, 1.1 ) * distanceX;
+	        star.position.y = generateRandomNumber( 0, 1.1 ) * distanceY;
+	        star.position.z = generateRandomNumber( 0, 1.3 ) * distanceZ;
+	        star.emissive = 0xffffff;
+			starGroup.add(star);
+		distanceX = distanceX * -1;
+		distanceY = distanceY * -1;
+
+		// Both negative
+		star = new THREE.Mesh( geometrySphereLittle, material );
+			star.name = "Star";
+	        star.position.x = generateRandomNumber( 0, 1.1 ) * distanceX;
+	        star.position.y = generateRandomNumber( 0, 1.1 ) * distanceY;
+	        star.position.z = generateRandomNumber( 0, 1.3 ) * distanceZ;
+	        star.emissive = 0xffffff;
+	        starGroup.add(star);
+	    distanceY = distanceY * -1;
+
+	    // Only x negative
+	    star = new THREE.Mesh( geometrySphereLittle, material );
+			star.name = "Star";
+	        star.position.x = generateRandomNumber( 0, 1.1 ) * distanceX;
+	        star.position.y = generateRandomNumber( 0, 1.1 ) * distanceY;
+	        star.position.z = generateRandomNumber( 0, 1.3 ) * distanceZ;
+	        star.emissive = 0xffffff;
+	        starGroup.add(star);
+	    distanceX = distanceX * -1;
+		distanceY = distanceY * -1;
+
+		// Only y  negative
+	    star = new THREE.Mesh( geometrySphereLittle, material );
+			star.name = "Star";
+	        star.position.x = generateRandomNumber( 0, 1.1 ) * distanceX;
+	        star.position.y = generateRandomNumber( 0, 1.1 ) * distanceY;
+	        star.position.z = generateRandomNumber( 0, 1.3 ) * distanceZ;
+	        star.emissive = 0xffffff;
+	        starGroup.add(star);
+		distanceY = distanceY * -1;
+
+	}
+	scene.add(starGroup);
+
+	var vFOV = THREE.Math.degToRad( camera.fov ); // convert vertical fov to radians
+	var height = 2 * Math.tan( vFOV / 2 ) * 5; // visible height
+	var width = height * camera.aspect;           // visible width
+	var currplanet;
+	
+	texture = loader.load( 'images/meteor.jpg' );
+	material = new THREE.MeshPhongMaterial( { map: texture } );
+	geometrySphereLittle = new THREE.SphereGeometry( 0.1, 50, 50 );
+	meteor = new THREE.Mesh( geometrySphereLittle, material );
+		meteor.name = "Meteor";
+		meteor.position.x = -width;
+	    meteor.position.z = -height;
+	    meteor.emissive = 0xffffff;
+	scene.add(meteor);
 
 	for (i = 0; i < planetNum; i++) {
 		// Save current planet object to temporary value
-		var currplanet = planetGroup[i];
+		currplanet = planetGroup[i];
 
 		// Create planet
 		texture = loader.load( currplanet.pic );
 		material = new THREE.MeshPhongMaterial( { map: texture } );
 			// material.bumpMap = THREE.ImageUtils.loadTexture();
 
+		geometrySphere = new THREE.SphereGeometry( currplanet.scale, 50, 50 );
+
 		planet = new THREE.Mesh( geometrySphere, material );
 			planet.name = currplanet.name;
-			planet.position.x = 15 * Math.sin( currpos );
-			planet.position.z = -15 * Math.cos( currpos );
-			planet.position.y += currposY;
+			planet.position.x = 10 * Math.sin( currpos*Math.PI/4  );
+			planet.position.z = -10 * Math.cos( currpos*Math.PI/4  );
+			// planet.position.y = planet.position.y + 1 * currposY;
 			scene.add( planet );
 
-		currplanet.planetOBJ = planet;
-		currpos += 0.285;
-		currposY = currposY * -1;
+		geometrySphere = new THREE.SphereGeometry( currplanet.scale+0.02, 50, 50 );
+		var outlineMaterial1 = new THREE.MeshBasicMaterial( { color: 0xFFFFFF, side: THREE.BackSide } );
+		var outlineMesh1 = new THREE.Mesh( geometrySphere, outlineMaterial1 );
+			outlineMesh1.name = "Outline";
+			outlineMesh1.position.x = planet.position.x;
+			outlineMesh1.position.y = planet.position.y;
+			outlineMesh1.position.z = planet.position.z;
+			outlineMesh1.visible = false;
+			scene.add( outlineMesh1 );
 
+		currplanet.planetOBJ = planet;
+		currplanet.planetOutline = outlineMesh1;
+		currpos += 1;
+		currposY = pickOne( -1.0, 1.0 );
+
+		if ( i == Math.floor( planetNum / 2 ) ) {
+			pointLight.target = planet;
+		}
 
 		// Create ring for corresponding planets
 		if ( currplanet.type == 'RingPlanet' || currplanet.type == 'RingTokenPlanet') {
+			geometryRing = new THREE.RingGeometry( (currplanet.scale+0.5), (currplanet.scale+0.75), 50 );
 			texture = loader.load( currplanet.ring );
 			material = new THREE.MeshPhongMaterial( { map: texture } );
 			ring = new THREE.Mesh( geometryRing, material );
@@ -117,24 +220,23 @@ function setScene() {
 				ring.rotation.x = Math.PI / -2.35;
 				ring.position.x = planet.position.x;
 				ring.position.z = planet.position.z;
-				ring.position.y += planet.position.y;
+				// ring.position.y += planet.position.y;
 				scene.add( ring );
-
-			currplanet.ringOBJ = ring;
 		}
 
 		// Create token for corresponding planets
 		if ( currplanet.type == 'TokenPlanet' || currplanet.type == 'RingTokenPlanet' ) {
+			geometryBox = new THREE.BoxGeometry( (currplanet.scale/2), (currplanet.scale/2),  (currplanet.scale/2));
 			texture = loader.load( currplanet.token );
 	  		material = new THREE.MeshPhongMaterial( { map: texture } );
+
   			token = new THREE.Mesh( geometryBox, material );
 	  			token.name = "Token";
-	  			token.position.y += 2 + planet.position.y;
+	  			token.position.y += (currplanet.scale*1.5) + planet.position.y;
 				token.position.x = planet.position.x;
 				token.position.z = planet.position.z;
-				token.visible - false;
+				token.visible = false;
 	  			scene.add( token );
-
 	  		currplanet.tokenOBJ = token;
 		}
 	}
@@ -153,10 +255,15 @@ function findPlanet( name ) {
 // Rotate planet, ring and token if applicable
 function rotatePlanet( obj, currplanet ) {
     obj.rotation.y -= SPINSPEED;
+    currplanet.planetOutline.visible = true;
     if ( currplanet.ringOBJ != null ) { currplanet.ringOBJ.rotation.z -= SPINSPEED; }
     if ( currplanet.type == 'TokenPlanet' || currplanet.type == 'RingTokenPlanet' ) {
     	currplanet.tokenOBJ.visible = true;
     	currplanet.tokenOBJ.rotation.y -= SPINSPEED;
+    }
+    if ( currplanet.type == 'RingPlanet' || currplanet.type == 'RingTokenPlanet' ) {
+    	console.log("HERE");
+    	// currplanet.ringOutline.visible = true;
     }
 }
 
@@ -164,7 +271,6 @@ function rotatePlanet( obj, currplanet ) {
 function setTokensFalse() {
 	for (var i = 0; i < planetNum; i++) {
 		var currplanet = planetGroup[i];
-		scene.remove( currplanet.light );
 		if ( currplanet.type == 'TokenPlanet' || currplanet.type == 'RingTokenPlanet' ) {
 			if ( currplanet.tokenOBJ != null ) { currplanet.tokenOBJ.visible = false; }
 		}
@@ -172,16 +278,16 @@ function setTokensFalse() {
 }
 
 
-/* COMMUNICATION */
-/* Obtains parameters from the hash of the URL */
-function getHashParams() {
-    var hashParams = {};
-    var e, r = /([^&;=]+)=?([^&;]*)/g,
-    q = window.location.hash.substring(1);
-    while ( e = r.exec(q)) {
-        hashParams[e[1]] = decodeURIComponent(e[2]);
-    }
-    return hashParams;
+// Set all outline objects to hidden
+function setOutlineFalse() {
+	for (var i = 0; i < planetNum; i++) {
+		var currplanet = planetGroup[i];
+		currplanet.planetOutline.visible = false;
+
+		// if ( currplanet.type == 'TokenPlanet' || currplanet.type == 'RingTokenPlanet' ) {
+		// 	if ( currplanet.tokenOBJ != null ) { currplanet.tokenOBJ.visible = false; }
+		// }
+	}
 }
 
 
@@ -198,9 +304,10 @@ function render() {
  	raycaster.setFromCamera( mouse, camera );
     var intersects = raycaster.intersectObjects( scene.children );
     setTokensFalse();
+    setOutlineFalse();
   	if ( intersects.length > 0 ) { 
   		var object = intersects[0].object;
-  		if ( object.name != 'Ring' && object.name != 'Token' ) {
+  		if ( object.name != 'Ring' && object.name != 'Token' && object.name != 'Meteor' && object.name != 'Outline' ) {
   			var currplanet = findPlanet( object.name );
   			if ( currplanet.type == 'TokenPlanet' || currplanet.type == 'RingTokenPlanet' ) {
   				// add highlight for shapes
@@ -209,11 +316,21 @@ function render() {
   		}
   	}
 
+  	// Change meteor position
+  // 	if ( meteor.position.z > camera.fov ) { 
+  // 		scene.remove(meteor); 
+  // 	} else {
+  // 		meteor.position.x += 0.01;
+		// meteor.position.z = meteor.position.z + 0.005;
+  // 	}
+
   	// Update controls
     var delta = clock.getDelta();
     flyControls.update( delta );
 
   	// Render scene and camera	
+    // console.log(scene);
+    // console.log(camera);
 	renderer.render( scene, camera );
 }
 
@@ -221,6 +338,9 @@ function render() {
 /* EVENT LISTENERS -- Check bellow for event listener functions */
 document.addEventListener('mousemove', onMouseMove, false); // 
 window.addEventListener( 'resize', onWindowResize, false ); // 
+
+
+// add even listenter and connect to function
 
 
 /* EVENT LISTENER FUNCTIONS -- Check above for event listener order */
@@ -239,57 +359,5 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
     renderer.setSize( WIDTH, HEIGHT );
 }
-
-
-/* HTML COMPONENT FUNCTIONALITY */
-var albumId =  "62CwfDeiM9t81FaFHebuUm";
-var access_token = "BQCzkfcGKSDwXCWUrC5dmSlbVBCp91bQk0EZdR1SsTjX-2jOrPTy_T7vcVIbUpRIaqCCrhaPMpj6Vl5O6YK56MDOcElwRFWD-eUaHQholIrXc2XV4DYbf90f9A-n9qzA6jI-0E2WTOnbN72_crfoujf2NWy3X_bckNTQ9s0sbnBR8JSL_nrM&refresh_token=AQDo0oiSnbWU5HDyYQ_-ZUcbzW2ssr7SjXOGIerRSD9s1AIpEfgnKP-OScU5MKfc1hYee4Dkp37j27PYtYUXYM32uNSpw_2g6T5aWm6mA9YSv3LVh5fICnBDyumbiXYN5XHwpw"
-
-// Music button selected -- check user login, get album, play music, move planets + stars
-function musicButton() {
-	const accBtn = document.querySelector(".accept-btn [id=accept]");
-    console.log("BUTTON CLICKED");
-    // Get album information
-    $.ajax({
-        url: 'https://api.spotify.com/v1/albums/' + albumId,
-        headers: { 'Authorization': 'Bearer ' + access_token },
-        success: function (response) {
-            console.log(response);
-        }
-    });
-}
-
-
-/* Spotify SDK Music Player */
-window.onSpotifyWebPlaybackSDKReady = () => {
-    const token = access_token;
-    const player = new Spotify.Player({
-        name: 'Web Playback SDK Quick Start Player',
-        getOAuthToken: cb => { cb(token); }
-    });
-
-    // Error handling
-    player.addListener('initialization_error', ({ message }) => { console.error(message); });
-    player.addListener('authentication_error', ({ message }) => { console.error(message); });
-    player.addListener('account_error', ({ message }) => { console.error(message); });
-    player.addListener('playback_error', ({ message }) => { console.error(message); });
-
-    // Playback status updates
-    player.addListener('player_state_changed', state => { console.log(state); });
-
-    // Ready
-    player.addListener('ready', ({ device_id }) => {
-        console.log('Ready with Device ID', device_id);
-    });
-
-    // Not Ready
-    player.addListener('not_ready', ({ device_id }) => {
-        console.log('Device ID has gone offline', device_id);
-    });
-
-    // Connect to the player!
-    player.connect();
-};
-
 
 

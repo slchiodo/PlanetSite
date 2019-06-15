@@ -30,7 +30,7 @@
 
 
 		<!-- Spotify SDK API -->
-		<!-- <script src="https://sdk.scdn.co/spotify-player.js"></script> -->
+	    <script src="//cdnjs.cloudflare.com/ajax/libs/handlebars.js/2.0.0-alpha.1/handlebars.min.js"></script>
 
 		<!-- Insert templates to display Spotify API Results -->
 
@@ -40,23 +40,165 @@
 			<div id="header-container" class="row"> 
 				<div class="col ui"> 
 					<h3> Confederation of the Planets </h3>
-					<p> Reuben Diamond and Josh Miller </p>
 				</div>
 			</div>
 
 			<div id="footer-container" class="row"> 
 				<div class="col"> 
-					<div class="musicButton">
 
-						<button type="button" class="btn btn-link" onclick="musicButton();" > 
+					<div id="login">
+						<a href="/login" id="musicButton" class="btn btn-link" > 
 							<i class="material-icons mdi-5x ui"> &#xE030; </i> 
-						</button>
+						</a>
 					</div>
+
+					<div id="loggedin">
+				        <div id="user-profile"></div>
+				        <div style="visibility: hidden; position: absolute;" id="oauth"></div>
+			      	</div>
+
 				</div>
 			</div>
-
 		</div>
 
+		<!-- TEMPLATES TO RECOVER API INFORMATION -->
+		<!-- Spotify logged in -->
+	    <script id="user-profile-template" type="text/x-handlebars-template">
+	     	<p class="ui">Logged in as {{email}}</p>
+	    </script>
+
+	    <!-- Spotify authentication tokens -->
+	    <script id="oauth-template" type="text/x-handlebars-template">
+	      <h2>oAuth info</h2>
+	      <dl class="dl-horizontal">
+	        <dt>Access token</dt><dd class="text-overflow">{{access_token}}</dd>
+	        <dt>Refresh token</dt><dd class="text-overflow">{{refresh_token}}</dd>
+	      </dl>
+	    </script>
+
+    <script>
+      (function() {
+
+        /* Obtains parameters from the hash of the URL and returens object */
+        function getHashParams() {
+	        var hashParams = {};
+	        var e, r = /([^&;=]+)=?([^&;]*)/g,
+	            q = window.location.hash.substring(1);
+	        while ( e = r.exec(q)) {
+	            hashParams[e[1]] = decodeURIComponent(e[2]);
+	        }
+	        return hashParams;
+        }
+
+        var userProfileSource = document.getElementById('user-profile-template').innerHTML,
+            userProfileTemplate = Handlebars.compile(userProfileSource),
+            userProfilePlaceholder = document.getElementById('user-profile');
+
+        var oauthSource = document.getElementById('oauth-template').innerHTML,
+            oauthTemplate = Handlebars.compile(oauthSource),
+            oauthPlaceholder = document.getElementById('oauth');
+
+        var params = getHashParams();
+
+        var access_token = params.access_token,
+            refresh_token = params.refresh_token,
+            error = params.error;
+
+        if (error) {
+        	
+        	alert('There was an error during the authentication');
+
+        } else {
+
+          	if (access_token) {
+	            oauthPlaceholder.innerHTML = oauthTemplate({
+	            	access_token: access_token,
+	              	refresh_token: refresh_token
+            });
+
+            $.ajax({
+                url: 'https://api.spotify.com/v1/me',
+            	headers: { 'Authorization': 'Bearer ' + access_token },
+                success: function(response) {
+                	userProfilePlaceholder.innerHTML = userProfileTemplate(response);
+                	console.log(response);
+
+                	$.getScript("https://sdk.scdn.co/spotify-player.js");
+
+                	window.onSpotifyWebPlaybackSDKReady = () => {
+			    		const player = new Spotify.Player({
+			        		name: 'Player',
+			        		getOAuthToken: callback => { callback( access_token ); },
+			        		volume: 0.1
+			      		});
+
+					    // Error handling
+					    player.addListener('initialization_error', ({ message }) => { console.error(message); });
+					    player.addListener('authentication_error', ({ message }) => { console.error(message); });
+					    player.addListener('account_error', ({ message }) => { console.error(message); });
+					    player.addListener('playback_error', ({ message }) => { console.error(message); });
+
+					    // Playback status updates
+					    player.addListener('player_state_changed', state => { 
+					    	console.log(state); 
+
+					    });
+
+                        // Ready
+                        player.addListener('ready', ({ device_id }) => {
+                            console.log('Ready with Device ID', device_id, access_token);
+                            $.ajax({
+                                url: 'https://api.spotify.com/v1/tracks/11dFghVXANMlKmJXsNCbNl',
+                               	headers: { 'Authorization': 'Bearer ' + access_token },
+                                success: function(response) {
+                                    play({
+                                        spotify_uri: response.uri,
+                                        playerInstance: (player),
+                                    });
+                                }
+                            });
+                        });
+
+                        // Not Ready
+                        player.addListener('not_ready', ({ device_id }) => {
+                            console.log('Device ID has gone offline', device_id);
+                        });
+
+                        // Connect to the player!
+                        player.connect();
+                        const play = ({
+                            spotify_uri,
+                            playerInstance: {
+                                _options: {
+                                    getOAuthToken,
+                                    id
+                                }
+                            }
+                        }) => { getOAuthToken (access_token => {
+                            fetch(`https://api.spotify.com/v1/me/player/play?device_id=${id}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ uris: [spotify_uri] }),
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${access_token}`
+                                },
+                            });
+                        });};
+
+			    	};
+
+                  	$('#login').hide();
+                  	$('#loggedin').show();
+                }
+            });
+          	} else {
+              	// render initial screen
+              	$('#login').show();
+              	$('#loggedin').hide();
+          	}
+        }
+      })();
+    </script>
 
 		<!-- SQL REQUESTS -->
 <!-- 	    <form action="http://localhost:5000/users" method="post">

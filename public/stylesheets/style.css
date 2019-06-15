@@ -6,7 +6,7 @@ body {
 }
 
 .ui {
-  color: yellow;
+  color: #CCFF00;
 }
 
 #main-container {
@@ -23,6 +23,17 @@ body {
   bottom: 2%;
   right: 2%;
   text-align: right;
-  height: 5%;
   position: fixed;
 }
+
+#login, #loggedin {
+  display: none;
+}
+
+.text-overflow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 500px;
+}
+        
